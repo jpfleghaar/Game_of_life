@@ -20,11 +20,7 @@ void read_input(int** map)
     while (read(0, &buf, 1) == 1)
     {
         if(buf == 'x')
-        {
             draw ^= 1;
-            if(draw)
-                map[y][x] = 1;
-        }
         else if(buf == 'w' && y > 0)
             y--;
         else if(buf == 's' && y < h -1)
