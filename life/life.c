@@ -1,165 +1,89 @@
 #include "life.h"
 
-char** alloc_board(int w, int h, char fill)
+//globals, read input, allocate map (map[i]), neighbours, nextgen, main (incl. printout and gen loop)
+int H;
+int W;
+
+void read_input(int** map)
 {
-    char **b = malloc(h * sizeof(char *));
-    if(!b)
-        return(NULL);
-    for(int i =0; i< h; i++)
-    {
-        b[i] = malloc(w * sizeof(char *));
-        if(!b[i])
-        {
-            while (i--)
-            {
-                free(b[i]);
-            }
-            free(b);
-            return(NULL);
-            
-        }
-        for(int j =0; j< w; j++)
-        {
-            b[i][j] = fill;
-        }
-    }
-    return(b);
-}
-int init_game(t_game* g, char** av)
-{
-    g->width = av[1];
-    g->heigth = av[2];
-    g->iteration = av[3];
-    g->i = 0;
-    g->j = 0;
-    g->draw = 0;
-    g->alive = '0';
-    g->dead = ' ';
-    g->board = alloc_board(g->width, g->heigth, ' ');
-    if(!g->board)
-        return(-1);
-    return(0);
+	int x = 0, y = 0;
+	int pen = 0;
+	char buf[4096];
+	int n = read(0, buf, sizeof(buf));
+	for (int i = 0; i < n; i++)
+	{
+		if (buf[i] == 'x')
+		{
+			pen = !pen;
+			if (pen)
+				map[y][x] = 1;
+		}
+		if (buf[i] == 'w' && y > 0)
+			y--;
+		if (buf[i] == 'a' && x > 0)
+			x--;
+		if (buf[i] == 's' && y < H - 1)
+			y++;
+		if (buf[i] == 'd' && x < W - 1)
+			x++;
+		if (pen && buf[i] != 'x')
+			map[y][x] = 1;
+	}
+	return ;
 }
 
-void fill_board(t_game* g)
+int** calloc_map()
 {
-    char c;
-    int move;
-
-    while(read(0, &c, 1) == 1)
-    {
-        move = 1;
-        if(c == 'w' && g->i >0)
-            g->i--;
-        else if(c == 's' && g->i < g->heigth -1)
-            g->i++;
-        else if(c == 'a' && g->j > 0)
-            g->j--;
-        else if(c == 'd' && g->j < g->width -1)
-            g->j++;
-        else if(c == 'x')
-        {
-            g->draw ^= 1;
-            move = 0;
-        }
-        else
-            move = 0;
-        if(g->draw && move)
-            g->board[g->i][g->j] = g->alive;
-    }
-}
-void free_board(t_game* g)
-{
-    if(!g->board)
-        return;
-    for(int i = 0; i < g->heigth; i++)
-    {
-        free(g->board[i]);
-    }
-    free(g->board);
-    g->board = NULL;
-}
-void print_board(t_game* g)
-{
-    for(int i = 0; i < g->heigth; i++)
-    {
-        for(int j =0; j < g->width; j++)
-        {
-            putchar(g->board[i][j]);
-        }
-        putchar('\n');
-    }
-
+	int** map = calloc(H, sizeof(int*));
+	for (int i = 0; i < H; i++)
+		map[i] = calloc(W, sizeof(int));
+	return map;
 }
 
-int count_neighbors(t_game* g, int i, int j)
+int neighbours(int** map, int y, int x)
 {
-    int count = 0;
-    int ni;
-    int nj;
-
-    for(int di = -1; di <= 1; di++)
-    {
-        for(int dj = -1; dj <= 1; dj++)
-        {
-            if(!di && !dj)
-                continue;
-            ni = i + di;
-            nj = j + dj;
-            if(ni >= 0 && nj >= 0 && ni <g->heigth && nj < g->width)
-                count += (g->board[ni][nj] == g->alive);
-        }
-    }
-    return(count);
-}
-int play(t_game* g)
-{
-    char **temp;
-    int n;
-    int alive;
-
-    temp = alloc_board(g->heigth, g->width, g->dead);
-    if(!temp)
-    {
-        return(-1);
-    }
-    for(int i = 0; i < g->heigth; i++)
-    {
-        for(int j =0; j < g->width; j++)
-        {
-            n = count_nrighboars(g, i, j);
-            alive = (g->board[i][j] == g->alive);
-            if(alive && (n == 2  || n == 3))
-                temp[i][j] = g->alive;
-            else if(!alive && n == 3)
-                temp[i][j] = g->alive;
-            else
-                temp[i][j] = g->dead;
-
-        }
-    }
-    free_board(g);
-    g->board = temp;
-    return(0);
+	int n = 0;
+	for (int dy = -1; dy <= 1; dy++)
+		for (int dx = -1; dx <= 1; dx++)
+			if (y+dy >= 0 && y+dy < H && x+dx >= 0 && x+dx < W)
+				n += map[y+dy][x+dx];
+	return (n - map[y][x]);
 }
 
-int main(int ac, char **av)
+int** nextgen(int** current, int** next)
 {
-    t_game g;
-    if(ac != 4)
-        return(1);
-    if(init_game(&g, av) == -1)
-        return(1);
-    fill_board(&g);
-    for(int i =0; i < g.iteration; i++)
-    {
-        if(play(&g) == -1)
-        {
-            free_board(&g);
-            return(1);
-        }
-    }
-    print_board(&g);
-    free_board(&g);
-    return(0);
+	for (int y = 0; y < H; y++)
+		for (int x = 0; x < W; x++)
+		{
+			int n = neighbours(current, y, x);
+			next[y][x] = (n == 3 || (current[y][x] && n == 2));
+		}
+	return next;
+}
+
+int main(int argc, char** argv)
+{
+	if (argc != 4)
+		return 2;
+	W = atoi(argv[1]);
+	H = atoi(argv[2]);
+	int gen = atoi(argv[3]);
+	int** current = calloc_map();
+	int** next = calloc_map();
+	read_input(current);
+	for (int i = 0; i < gen; i++)
+	{
+		int** temp = current;
+		current = nextgen(current, next);
+		next = temp;
+	}
+	for (int y = 0; y < H; y++)
+	{
+		for (int x = 0; x < W; x++)
+		{
+			current[y][x] ? putchar('O') : putchar(' ');
+		}
+		putchar('\n');
+	}
+	return 0;
 }
